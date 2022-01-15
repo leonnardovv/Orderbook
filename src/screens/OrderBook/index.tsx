@@ -160,7 +160,6 @@ export const OrderBook = () => {
           } else if (event && event === 'unsubscribed') {
             clearTreesAndState();
           }
-          // setIsLoading(false);
         } catch (error) {
           // eslint-disable-next-line no-console
           console.warn('Error: ', error);
@@ -172,7 +171,6 @@ export const OrderBook = () => {
   const clearTreesAndState = () => {
     bidsTree.clear();
     asksTree.clear();
-    //
   };
 
   /**
