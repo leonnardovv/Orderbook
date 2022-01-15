@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
   SafeAreaView,
@@ -70,7 +70,7 @@ export const OrderBook = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [time]);
 
-  const updateTreesAndState = () => {
+  const updateTreesAndState = useCallback(() => {
     const tempBids: Bid[] = [];
     const tempAsks: Ask[] = [];
 
@@ -123,9 +123,101 @@ export const OrderBook = () => {
 
       setSpreadPercentage(tempSpreadPercentage);
     }
-  };
+  }, [asksTree, bidsTree]);
 
-  const onMessageReceived = () => {
+  const clearTreesAndState = useCallback(() => {
+    bidsTree.clear();
+    asksTree.clear();
+  }, [asksTree, bidsTree]);
+
+  /**
+   *
+   * @param currentPrice - the price of the bid/ask
+   * @param currentSize - the size of the bid/ask
+   * @param avlTreeName - the name of the tree we use to check similar keys(prices)
+   *
+   * @description
+   * We search for similar keys(prices) in the tree nodes. If we find similar keys(prices), we
+   * check if the size is 0. If yes, we remove the key(price). If not, we update the node data(size)
+   * with the new size.
+   */
+  const updateSimilarPrice = useCallback(
+    (
+      currentPrice: number,
+      currentSize: number,
+      avlTreeName: ArrayTypes.bids | ArrayTypes.asks,
+    ) => {
+      const currentTree = avlTreeName === ArrayTypes.bids ? bidsTree : asksTree;
+      const foundPrice = currentTree.find(currentPrice);
+
+      if (!foundPrice) {
+        return false;
+      }
+      currentTree.remove(currentPrice);
+      if (currentSize > 0) {
+        currentTree.insert(currentPrice, currentSize);
+      }
+      return true;
+    },
+    [asksTree, bidsTree],
+  );
+
+  /**
+   * @param array - the specific array we want to map(bids or asks)
+   * @param data - new size
+   *
+   * @description
+   * Every data that comes new will be checked in this function.
+   * On bids -> If the new data is >= the tree's lowest price, we will remove the lowest price and add the new values.
+   * On bids -> If the new data is <= the tree's biggest price, we will remove the biggest price and add the new values.
+   * AVL tree will order the nodes automatically by the key(price)
+   */
+  const updateNodes = useCallback(
+    (
+      array: Array<[number, number]>,
+      arrayType: ArrayTypes.bids | ArrayTypes.asks,
+    ) => {
+      const currentTree = arrayType === ArrayTypes.bids ? bidsTree : asksTree;
+      array.forEach((item) => {
+        const [price, size] = item;
+        if (!updateSimilarPrice(price, size, arrayType)) {
+          const numNodes = currentTree.keys().length;
+          const minPrice = currentTree.min();
+          let maxPrice;
+          if (arrayType === ArrayTypes.bids) {
+            maxPrice = currentTree.min(); // again we use bidsTree.min() as maxValue
+          } else {
+            maxPrice = currentTree.max();
+          }
+
+          if (numNodes < numLevels && size > 0) {
+            currentTree.insert(price, size);
+          } else if (
+            numNodes === numLevels &&
+            size > 0 &&
+            minPrice &&
+            price >= minPrice &&
+            arrayType === ArrayTypes.bids
+          ) {
+            currentTree.remove(minPrice);
+            currentTree.insert(price, size);
+          } else if (
+            numNodes === numLevels &&
+            size > 0 &&
+            maxPrice &&
+            price <= maxPrice &&
+            arrayType === ArrayTypes.asks
+          ) {
+            currentTree.remove(maxPrice);
+            currentTree.insert(price, size);
+          }
+        }
+      });
+    },
+    [asksTree, bidsTree, updateSimilarPrice],
+  );
+
+  const onMessageReceived = useCallback(() => {
     if (wsRef) {
       wsRef.onmessage = (message) => {
         try {
@@ -166,93 +258,7 @@ export const OrderBook = () => {
         }
       };
     }
-  };
-
-  const clearTreesAndState = () => {
-    bidsTree.clear();
-    asksTree.clear();
-  };
-
-  /**
-   *
-   * @param currentPrice - the price of the bid/ask
-   * @param currentSize - the size of the bid/ask
-   * @param avlTreeName - the name of the tree we use to check similar keys(prices)
-   *
-   * @description
-   * We search for similar keys(prices) in the tree nodes. If we find similar keys(prices), we
-   * check if the size is 0. If yes, we remove the key(price). If not, we update the node data(size)
-   * with the new size.
-   */
-  const updateSimilarPrice = (
-    currentPrice: number,
-    currentSize: number,
-    avlTreeName: ArrayTypes.bids | ArrayTypes.asks,
-  ) => {
-    const currentTree = avlTreeName === ArrayTypes.bids ? bidsTree : asksTree;
-    const foundPrice = currentTree.find(currentPrice);
-
-    if (!foundPrice) {
-      return false;
-    }
-    currentTree.remove(currentPrice);
-    if (currentSize > 0) {
-      currentTree.insert(currentPrice, currentSize);
-    }
-    return true;
-  };
-
-  /**
-   * @param array - the specific array we want to map(bids or asks)
-   * @param data - new size
-   *
-   * @description
-   * Every data that comes new will be checked in this function.
-   * On bids -> If the new data is >= the tree's lowest price, we will remove the lowest price and add the new values.
-   * On bids -> If the new data is <= the tree's biggest price, we will remove the biggest price and add the new values.
-   * AVL tree will order the nodes automatically by the key(price)
-   */
-  const updateNodes = (
-    array: Array<[number, number]>,
-    arrayType: ArrayTypes.bids | ArrayTypes.asks,
-  ) => {
-    const currentTree = arrayType === ArrayTypes.bids ? bidsTree : asksTree;
-    array.forEach((item) => {
-      const [price, size] = item;
-      if (!updateSimilarPrice(price, size, arrayType)) {
-        const numNodes = currentTree.keys().length;
-        const minPrice = currentTree.min();
-        let maxPrice;
-        if (arrayType === ArrayTypes.bids) {
-          maxPrice = currentTree.min(); // again we use bidsTree.min() as maxValue
-        } else {
-          maxPrice = currentTree.max();
-        }
-
-        if (numNodes < numLevels && size > 0) {
-          currentTree.insert(price, size);
-        } else if (
-          numNodes === numLevels &&
-          size > 0 &&
-          minPrice &&
-          price >= minPrice &&
-          arrayType === ArrayTypes.bids
-        ) {
-          currentTree.remove(minPrice);
-          currentTree.insert(price, size);
-        } else if (
-          numNodes === numLevels &&
-          size > 0 &&
-          maxPrice &&
-          price <= maxPrice &&
-          arrayType === ArrayTypes.asks
-        ) {
-          currentTree.remove(maxPrice);
-          currentTree.insert(price, size);
-        }
-      }
-    });
-  };
+  }, [asksTree, bidsTree, clearTreesAndState, updateNodes, wsRef]);
 
   return (
     <SafeAreaView style={styles.container}>

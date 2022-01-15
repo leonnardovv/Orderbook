@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const subscribeCall = {
   event: 'subscribe',
@@ -23,7 +23,14 @@ export const useWebSocketConnection = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
-  const connect = () => {
+  const subscribe = useCallback(
+    (ws: WebSocket) => {
+      ws.send(JSON.stringify({ ...subscribeCall, product_ids: [productId] }));
+      setSubscribed(true);
+    },
+    [productId],
+  );
+  const connect = useCallback(() => {
     if (!wsRef.current) {
       const ws = new WebSocket('wss://www.cryptofacilities.com/ws/v1'); // should add to .env
       ws.onopen = () => {
@@ -33,24 +40,19 @@ export const useWebSocketConnection = () => {
     } else {
       subscribe(wsRef.current);
     }
-  };
+  }, [subscribe]);
 
-  const subscribe = (ws: WebSocket) => {
-    ws.send(JSON.stringify({ ...subscribeCall, product_ids: [productId] }));
-    setSubscribed(true);
-  };
-
-  const unsubscribe = () => {
+  const unsubscribe = useCallback(() => {
     setIsLoading(true);
     wsRef.current?.send(
       JSON.stringify({ ...unsubscribeCall, product_ids: [productId] }),
     );
     setSubscribed(false);
-  };
+  }, [productId]);
 
-  const toggleProductId = () => {
+  const toggleProductId = useCallback(() => {
     setProductId(productId === 'PI_XBTUSD' ? 'PI_ETHUSD' : 'PI_XBTUSD');
-  };
+  }, [productId]);
 
   return {
     wsRef: wsRef.current,
