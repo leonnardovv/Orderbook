@@ -12,7 +12,9 @@
     expo start
     
 # Notes
-    The project can be optimized more (including more error handling methods).
-    The OrderBook/index.tsx file can be divided in more files.
+    The project can be optimized more: 
+    * including more error handling methods
+    * splitting the pages in multiple components
+    
     
     
