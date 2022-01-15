@@ -260,16 +260,7 @@ export const OrderBook = () => {
       <View style={styles.orderBook}>
         <Text style={styles.pageTitle}>Order Book</Text>
         {clearedState ? (
-          <Text
-            style={{
-              alignSelf: 'center',
-              marginTop: 0.35 * windowHeight,
-              color: colors.white,
-              fontSize: 20,
-            }}
-          >
-            Disconnected
-          </Text>
+          <Text style={styles.statusText}>Disconnected</Text>
         ) : (
           <>
             <View style={styles.orderBookHeader}>
@@ -381,5 +372,11 @@ const styles = StyleSheet.create({
   toggleText: {
     color: '#fff',
     fontSize: 16,
+  },
+  statusText: {
+    alignSelf: 'center',
+    marginTop: 0.35 * windowHeight,
+    color: colors.white,
+    fontSize: 20,
   },
 });
